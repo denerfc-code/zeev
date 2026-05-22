@@ -16,169 +16,219 @@ async function custom_exibirImagensParaImpressao() {
     for (const link of links) {
 
         try {
-
-            console.log("Abrindo preview:", link.href);
-
-            const response = await fetch(link.href, {
-                credentials: 'include'
-            });
-
-            const html = await response.text();
-
-            const parser = new DOMParser();
-
-            const doc = parser.parseFromString(html, 'text/html');
-
-            // Tenta encontrar imagem em diferentes formatos
-            let imgInterna = doc.querySelector('img');
+            // Extrai o ID do documento da URL
+            const urlParts = link.href.match(/\/document\/preview\/(\d+)/);
+            const documentId = urlParts ? urlParts[1] : null;
             
-            // Se não encontrou img, tenta encontrar canvas (alguns sistemas renderizam em canvas)
-            if (!imgInterna) {
-                const canvas = doc.querySelector('canvas');
-                if (canvas) {
-                    console.log("Convertendo canvas para imagem...");
-                    imgInterna = { src: canvas.toDataURL() };
+            // Tenta encontrar o tipo de arquivo pelo texto do link
+            const linkText = link.innerText || link.textContent || '';
+            const isPdf = linkText.toLowerCase().includes('.pdf') || linkText.toLowerCase().includes('pdf');
+            const isJpg = linkText.toLowerCase().includes('.jpg') || linkText.toLowerCase().includes('.jpeg');
+            const isPng = linkText.toLowerCase().includes('.png');
+            
+            console.log(`Processando: ${linkText} (ID: ${documentId})`);
+
+            if (isPdf) {
+                // Para PDFs, adiciona um iframe ou link de download
+                console.log("Arquivo PDF detectado");
+                const pdfContainer = document.createElement('div');
+                pdfContainer.style.margin = '10px 0';
+                pdfContainer.style.border = '1px solid #ddd';
+                pdfContainer.style.padding = '10px';
+                
+                const pdfLink = document.createElement('a');
+                pdfLink.href = link.href;
+                pdfLink.textContent = `📄 ${linkText} - Clique para visualizar PDF`;
+                pdfLink.target = '_blank';
+                pdfLink.style.display = 'block';
+                pdfLink.style.marginBottom = '5px';
+                
+                pdfContainer.appendChild(pdfLink);
+                link.after(pdfContainer);
+                continue;
+            }
+            
+            // Tenta buscar a imagem diretamente via API do Zeev (se disponível)
+            let imageUrl = null;
+            
+            // Estratégia 1: Tentar buscar via endpoint de download
+            if (documentId) {
+                const downloadUrl = link.href.replace('/preview/', '/download/');
+                try {
+                    console.log("Tentando download direto:", downloadUrl);
+                    const testResponse = await fetch(downloadUrl, {
+                        credentials: 'include',
+                        method: 'HEAD'
+                    });
+                    
+                    if (testResponse.ok) {
+                        imageUrl = downloadUrl;
+                        console.log("URL de download encontrada:", imageUrl);
+                    }
+                } catch (e) {
+                    console.log("Download direto não disponível");
                 }
             }
             
-            // Tenta encontrar links de download de imagem
-            if (!imgInterna) {
-                const downloadLink = Array.from(doc.querySelectorAll('a')).find(a => 
-                    a.href && (a.href.match(/\.(jpg|jpeg|png|gif|webp)/i) || 
-                    a.innerText.toLowerCase().includes('download') ||
-                    a.innerText.toLowerCase().includes('baixar'))
-                );
-                if (downloadLink && downloadLink.href) {
-                    console.log("Link de download encontrado:", downloadLink.href);
-                    imgInterna = { src: downloadLink.href };
-                }
-            }
-            
-            // Tenta encontrar imagem em background (CSS)
-            if (!imgInterna) {
-                const elementoComBg = Array.from(doc.querySelectorAll('[style*="background"]')).find(el => 
-                    el.style.backgroundImage && el.style.backgroundImage !== 'none'
-                );
-                if (elementoComBg) {
-                    const bgMatch = elementoComBg.style.backgroundImage.match(/url\(["']?([^"')]+)["']?\)/);
-                    if (bgMatch && bgMatch[1]) {
-                        console.log("Background image encontrada:", bgMatch[1]);
-                        imgInterna = { src: bgMatch[1] };
+            // Estratégia 2: Buscar no preview atual
+            if (!imageUrl) {
+                console.log("Buscando no preview:", link.href);
+                const response = await fetch(link.href, {
+                    credentials: 'include'
+                });
+                
+                const html = await response.text();
+                
+                // Procura por diferentes padrões de imagem
+                const patterns = [
+                    // Imagem em tag img
+                    /<img[^>]+src=["']([^"']+)["'][^>]*>/gi,
+                    // Imagem em data-src (lazy loading)
+                    /data-src=["']([^"']+)["']/gi,
+                    // URL de imagem em JavaScript
+                    /(?:imageUrl|imgUrl|src)\s*[:=]\s*["']([^"']+\.(?:jpg|jpeg|png|gif))["']/gi,
+                    // Blob URLs
+                    /(blob:[^"'\s]+)/gi,
+                    // URLs de CDN
+                    /(https?:\/\/[^"'\s]+\.(?:jpg|jpeg|png|gif))/gi
+                ];
+                
+                for (const pattern of patterns) {
+                    const matches = [...html.matchAll(pattern)];
+                    if (matches.length > 0) {
+                        imageUrl = matches[0][1];
+                        console.log("Imagem encontrada via padrão:", imageUrl);
+                        break;
                     }
                 }
-            }
-
-            if (!imgInterna) {
-                // Se ainda não encontrou, tenta extrair dados do blob ou arquivo
-                const blobLinks = Array.from(doc.querySelectorAll('a[href*="blob:"], a[download]'));
-                if (blobLinks.length > 0) {
-                    for (const blobLink of blobLinks) {
-                        if (blobLink.href) {
-                            try {
-                                const blobResponse = await fetch(blobLink.href);
-                                const blob = await blobResponse.blob();
-                                if (blob.type.startsWith('image/')) {
-                                    const imageUrl = URL.createObjectURL(blob);
-                                    imgInterna = { src: imageUrl };
-                                    break;
-                                }
-                            } catch (blobErr) {
-                                console.warn("Erro ao processar blob:", blobErr);
-                            }
+                
+                // Se ainda não encontrou, tenta extrair do DOM parseado
+                if (!imageUrl) {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    
+                    // Procura por elementos de imagem em visualizadores comuns
+                    const possibleImages = [
+                        ...doc.querySelectorAll('img'),
+                        ...doc.querySelectorAll('[data-image]'),
+                        ...doc.querySelectorAll('[data-url]'),
+                        ...doc.querySelectorAll('.image-viewer img'),
+                        ...doc.querySelectorAll('.file-preview img'),
+                        ...doc.querySelectorAll('.document-viewer img')
+                    ];
+                    
+                    for (const img of possibleImages) {
+                        const src = img.src || img.getAttribute('data-image') || img.getAttribute('data-url');
+                        if (src && (src.includes('blob:') || src.match(/\.(jpg|jpeg|png|gif)/i))) {
+                            imageUrl = src;
+                            console.log("Imagem encontrada no DOM:", imageUrl);
+                            break;
                         }
                     }
                 }
             }
-
-            if (!imgInterna || !imgInterna.src) {
-                console.warn("Nenhuma imagem encontrada dentro do preview.");
-                // Adiciona link direto se não encontrar imagem
-                const linkTexto = document.createElement('a');
-                linkTexto.href = link.href;
-                linkTexto.textContent = `📎 ${link.innerText || 'Anexo'}`;
-                linkTexto.target = '_blank';
-                linkTexto.style.display = 'block';
-                linkTexto.style.margin = '5px 0';
-                link.after(linkTexto);
-                continue;
+            
+            // Estratégia 3: Tentar converter para blob se for base64
+            if (!imageUrl && documentId) {
+                try {
+                    const blobResponse = await fetch(link.href, {
+                        credentials: 'include'
+                    });
+                    const blob = await blobResponse.blob();
+                    
+                    if (blob.type.startsWith('image/')) {
+                        imageUrl = URL.createObjectURL(blob);
+                        console.log("Blob de imagem criado");
+                    } else if (blob.type === 'application/pdf') {
+                        console.log("É um PDF, ignorando...");
+                        continue;
+                    }
+                } catch (e) {
+                    console.log("Falha ao criar blob:", e);
+                }
             }
-
-            console.log("Imagem encontrada:", imgInterna.src);
-
-            // Cria container para a imagem
-            const container = document.createElement('div');
-            container.style.margin = '10px 0';
-            container.style.border = '1px solid #ddd';
-            container.style.padding = '10px';
-            container.style.borderRadius = '5px';
             
-            const novaImagem = document.createElement('img');
-            novaImagem.src = imgInterna.src;
-            novaImagem.alt = 'Evidência';
-            novaImagem.classList.add('custom-imagem-evidencia');
-            novaImagem.style.maxWidth = '100%';
-            novaImagem.style.height = 'auto';
-            novaImagem.style.display = 'block';
-            
-            // Adiciona informação do tipo de arquivo
-            const infoSpan = document.createElement('span');
-            infoSpan.textContent = `${link.innerText || 'Evidência'} - `;
-            infoSpan.style.fontSize = '12px';
-            infoSpan.style.color = '#666';
-            
-            const tipoArquivo = imgInterna.src.split('.').pop().split('?')[0].toUpperCase();
-            infoSpan.textContent += tipoArquivo === 'JPG' ? 'JPEG' : tipoArquivo;
-            
-            container.appendChild(infoSpan);
-            container.appendChild(novaImagem);
-            
-            novaImagem.onerror = () => {
-                console.error("Erro ao carregar imagem:", imgInterna.src);
-                infoSpan.textContent += ' ❌ (Falha ao carregar)';
-                // Tenta adicionar link alternativo
+            if (!imageUrl) {
+                console.warn(`Não foi possível extrair imagem para: ${linkText}`);
+                // Adiciona link alternativo
                 const fallbackLink = document.createElement('a');
                 fallbackLink.href = link.href;
-                fallbackLink.textContent = 'Clique aqui para visualizar';
+                fallbackLink.textContent = `🔗 ${linkText}`;
                 fallbackLink.target = '_blank';
-                container.appendChild(fallbackLink);
+                fallbackLink.style.display = 'block';
+                fallbackLink.style.margin = '5px 0';
+                fallbackLink.style.padding = '8px';
+                fallbackLink.style.backgroundColor = '#f5f5f5';
+                fallbackLink.style.borderRadius = '4px';
+                fallbackLink.style.textDecoration = 'none';
+                fallbackLink.style.color = '#0066cc';
+                link.after(fallbackLink);
+                continue;
+            }
+            
+            // Cria elemento para exibir a imagem
+            const container = document.createElement('div');
+            container.style.margin = '15px 0';
+            container.style.border = '1px solid #e0e0e0';
+            container.style.padding = '12px';
+            container.style.borderRadius = '6px';
+            container.style.backgroundColor = '#fafafa';
+            
+            const title = document.createElement('div');
+            title.textContent = linkText;
+            title.style.fontWeight = 'bold';
+            title.style.marginBottom = '8px';
+            title.style.fontSize = '14px';
+            title.style.color = '#333';
+            
+            const imagem = document.createElement('img');
+            imagem.src = imageUrl;
+            imagem.alt = linkText;
+            imagem.style.maxWidth = '100%';
+            imagem.style.height = 'auto';
+            imagem.style.borderRadius = '4px';
+            imagem.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            
+            // Indicador de loading
+            const loading = document.createElement('div');
+            loading.textContent = '⏳ Carregando imagem...';
+            loading.style.fontSize = '12px';
+            loading.style.color = '#666';
+            loading.style.marginTop = '5px';
+            
+            container.appendChild(title);
+            container.appendChild(imagem);
+            container.appendChild(loading);
+            
+            imagem.onload = () => {
+                loading.remove();
+                console.log(`Imagem carregada: ${linkText}`);
             };
-
-            novaImagem.onload = () => {
-                console.log("Imagem carregada com sucesso!");
-                infoSpan.textContent += ' ✓';
+            
+            imagem.onerror = () => {
+                loading.textContent = '❌ Falha ao carregar imagem. Clique no link original para visualizar.';
+                loading.style.color = '#d32f2f';
+                console.error(`Erro ao carregar: ${imageUrl}`);
             };
-
+            
             link.after(container);
-
+            
         } catch (e) {
-
             console.error("Erro ao processar evidência:", e);
-            
-            // Fallback: adiciona link direto
-            const fallbackLink = document.createElement('a');
-            fallbackLink.href = link.href;
-            fallbackLink.textContent = `📎 ${link.innerText || 'Ver anexo'}`;
-            fallbackLink.target = '_blank';
-            fallbackLink.style.display = 'block';
-            fallbackLink.style.margin = '5px 0';
-            fallbackLink.style.padding = '5px';
-            fallbackLink.style.backgroundColor = '#f0f0f0';
-            fallbackLink.style.borderRadius = '3px';
-            link.after(fallbackLink);
-            
         }
-
+        
+        // Pequeno delay para não sobrecarregar
+        await new Promise(resolve => setTimeout(resolve, 500));
     }
-
+    
     console.log("Finalizado.");
 }
 
-window.addEventListener("load", () => {
-
-    setTimeout(() => {
-
-        custom_exibirImagensParaImpressao();
-
-    }, 2000);
-
-});
+// Executa quando a página carregar
+if (document.readyState === 'loading') {
+    window.addEventListener("load", () => {
+        setTimeout(() => custom_exibirImagensParaImpressao(), 2000);
+    });
+} else {
+    setTimeout(() => custom_exibirImagensParaImpressao(), 2000);
+}
