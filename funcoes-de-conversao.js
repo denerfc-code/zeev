@@ -9,41 +9,71 @@ async function custom_exibirImagensParaImpressao() {
         return;
     }
 
-    const linksDeEvidencia = campoEvidencias.querySelectorAll('a[href*="document/preview"]');
+    const links = campoEvidencias.querySelectorAll('a[href*="document/preview"]');
 
-    console.log(`Encontrados ${linksDeEvidencia.length} anexos.`);
+    console.log(`Encontrados ${links.length} anexos.`);
 
-    for (const link of linksDeEvidencia) {
+    for (const link of links) {
 
-        if (link.nextElementSibling?.classList.contains('custom-imagem-evidencia')) {
-            continue;
+        try {
+
+            console.log("Abrindo preview:", link.href);
+
+            const response = await fetch(link.href, {
+                credentials: 'include'
+            });
+
+            const html = await response.text();
+
+            const parser = new DOMParser();
+
+            const doc = parser.parseFromString(html, 'text/html');
+
+            const imgInterna = doc.querySelector('img');
+
+            if (!imgInterna) {
+
+                console.warn("Nenhuma imagem encontrada dentro do preview.");
+
+                continue;
+            }
+
+            console.log("Imagem encontrada:", imgInterna.src);
+
+            const novaImagem = document.createElement('img');
+
+            novaImagem.src = imgInterna.src;
+
+            novaImagem.alt = 'Evidência';
+
+            novaImagem.classList.add('custom-imagem-evidencia');
+
+            novaImagem.onerror = () => {
+                console.error("Erro ao carregar imagem:", imgInterna.src);
+            };
+
+            link.after(novaImagem);
+
+            novaImagem.after(document.createElement('br'));
+
+        } catch (e) {
+
+            console.error("Erro ao processar evidência:", e);
+
         }
-
-        const imagemElemento = document.createElement('img');
-
-        imagemElemento.src = link.href;
-
-        imagemElemento.alt = 'Evidência';
-
-        imagemElemento.classList.add('custom-imagem-evidencia');
-
-        imagemElemento.onerror = () => {
-            console.error("Erro ao carregar imagem:", link.href);
-        };
-
-        link.after(imagemElemento);
-
-        imagemElemento.after(document.createElement('br'));
 
     }
 
     console.log("Finalizado.");
+
 }
 
 window.addEventListener("load", () => {
 
     setTimeout(() => {
+
         custom_exibirImagensParaImpressao();
+
     }, 2000);
 
 });
