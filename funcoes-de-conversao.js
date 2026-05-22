@@ -1,3 +1,4 @@
+```javascript id="m4x2cf"
 // =========================
 // FUNÇÕES AUXILIARES
 // =========================
@@ -38,16 +39,15 @@ function custom_converterDecimalParaString(valor) {
 }
 
 // =========================
-// EXIBIR IMAGENS DAS EVIDÊNCIAS
+// EXIBIR IMAGENS
 // =========================
 
 async function custom_exibirImagensParaImpressao() {
 
     console.log("=================================");
-    console.log("INICIANDO EXIBIÇÃO DE EVIDÊNCIAS");
+    console.log("INICIANDO EVIDÊNCIAS");
     console.log("=================================");
 
-    // Campo evidências
     const campoEvidencias = document.querySelector(
         "div[xid='divevidencias']"
     );
@@ -62,7 +62,6 @@ async function custom_exibirImagensParaImpressao() {
 
     }
 
-    // Busca links preview
     const links = campoEvidencias.querySelectorAll(
         'a[href*="document/preview"]'
     );
@@ -71,15 +70,6 @@ async function custom_exibirImagensParaImpressao() {
         `Encontrados ${links.length} anexos.`
     );
 
-    if (links.length === 0) {
-
-        console.warn("Nenhum anexo encontrado.");
-
-        return;
-
-    }
-
-    // Percorre anexos
     for (const link of links) {
 
         try {
@@ -97,10 +87,13 @@ async function custom_exibirImagensParaImpressao() {
             }
 
             console.log("=================================");
-            console.log("PROCESSANDO LINK:");
+            console.log("PROCESSANDO:");
             console.log(link.href);
 
-            // Busca preview HTML
+            // =========================
+            // BUSCA PREVIEW
+            // =========================
+
             const response = await fetch(
                 link.href,
                 {
@@ -111,7 +104,7 @@ async function custom_exibirImagensParaImpressao() {
             if (!response.ok) {
 
                 console.error(
-                    "Erro ao abrir preview:",
+                    "Erro preview:",
                     response.status
                 );
 
@@ -119,127 +112,70 @@ async function custom_exibirImagensParaImpressao() {
 
             }
 
-            // HTML preview
             const html = await response.text();
 
-            // Parse HTML
-            const parser = new DOMParser();
-
-            const doc = parser.parseFromString(
-                html,
-                'text/html'
-            );
+            // =========================
+            // EXTRAI URL JPG/PNG DIRETO
+            // =========================
 
             let srcImagem = null;
 
-            // =========================
-            // TENTA IMG NORMAL
-            // =========================
+            // Procura URLs completas
+            const regex =
+                /https?:\/\/[^"' ]+\.(jpg|jpeg|png|webp)/gi;
 
-            const img = doc.querySelector('img');
+            const urlsEncontradas =
+                html.match(regex);
 
-            if (img) {
+            if (
+                urlsEncontradas &&
+                urlsEncontradas.length > 0
+            ) {
 
                 srcImagem =
-                    img.src ||
-                    img.getAttribute('src') ||
-                    img.getAttribute('data-src') ||
-                    img.getAttribute('srcset');
+                    urlsEncontradas[0];
 
                 console.log(
-                    "Imagem encontrada via IMG:",
+                    "URL encontrada via REGEX:",
                     srcImagem
                 );
 
             }
 
             // =========================
-            // TENTA SOURCE
+            // TENTA SRC NORMAL
             // =========================
 
             if (!srcImagem) {
 
-                const source =
-                    doc.querySelector('source');
+                const parser =
+                    new DOMParser();
 
-                if (source) {
+                const doc =
+                    parser.parseFromString(
+                        html,
+                        'text/html'
+                    );
+
+                const img =
+                    doc.querySelector('img');
+
+                if (img) {
 
                     srcImagem =
-                        source.src ||
-                        source.getAttribute('src') ||
-                        source.getAttribute(
+                        img.src ||
+                        img.getAttribute('src') ||
+                        img.getAttribute(
+                            'data-src'
+                        ) ||
+                        img.getAttribute(
                             'srcset'
                         );
 
                     console.log(
-                        "Imagem encontrada via SOURCE:",
+                        "Imagem encontrada via IMG:",
                         srcImagem
                     );
-
-                }
-
-            }
-
-            // =========================
-            // TENTA DATA-SRC
-            // =========================
-
-            if (!srcImagem) {
-
-                const lazy =
-                    doc.querySelector('[data-src]');
-
-                if (lazy) {
-
-                    srcImagem =
-                        lazy.getAttribute(
-                            'data-src'
-                        );
-
-                    console.log(
-                        "Imagem encontrada via DATA-SRC:",
-                        srcImagem
-                    );
-
-                }
-
-            }
-
-            // =========================
-            // TENTA BACKGROUND IMAGE
-            // =========================
-
-            if (!srcImagem) {
-
-                const elementos =
-                    doc.querySelectorAll('*');
-
-                for (const el of elementos) {
-
-                    const bg =
-                        window.getComputedStyle(el)
-                            .backgroundImage;
-
-                    if (
-                        bg &&
-                        bg !== 'none' &&
-                        bg.includes('url(')
-                    ) {
-
-                        srcImagem = bg
-                            .replace('url("', '')
-                            .replace('url(', '')
-                            .replace('")', '')
-                            .replace(')', '');
-
-                        console.log(
-                            "Imagem encontrada via BACKGROUND:",
-                            srcImagem
-                        );
-
-                        break;
-
-                    }
 
                 }
 
@@ -252,23 +188,21 @@ async function custom_exibirImagensParaImpressao() {
             if (!srcImagem) {
 
                 console.warn(
-                    "Não foi possível localizar imagem."
+                    "Imagem não localizada."
                 );
 
                 console.log(
-                    "HTML COMPLETO DO PREVIEW:"
+                    "HTML PREVIEW:"
                 );
 
-                console.log(
-                    doc.body.innerHTML
-                );
+                console.log(html);
 
                 continue;
 
             }
 
             // =========================
-            // AJUSTA URL RELATIVA
+            // URL RELATIVA
             // =========================
 
             if (
@@ -282,57 +216,94 @@ async function custom_exibirImagensParaImpressao() {
             }
 
             console.log(
-                "URL FINAL DA IMAGEM:"
+                "URL FINAL:"
             );
 
             console.log(srcImagem);
 
             // =========================
-            // CRIA IMAGEM
+            // BAIXA IMAGEM VIA BLOB
+            // =========================
+
+            const imagemResponse =
+                await fetch(
+                    srcImagem,
+                    {
+                        credentials:
+                            'include'
+                    }
+                );
+
+            if (!imagemResponse.ok) {
+
+                console.error(
+                    "Erro download imagem:",
+                    imagemResponse.status
+                );
+
+                continue;
+
+            }
+
+            const blob =
+                await imagemResponse.blob();
+
+            const objectURL =
+                URL.createObjectURL(blob);
+
+            console.log(
+                "Blob criado."
+            );
+
+            // =========================
+            // CRIA IMG
             // =========================
 
             const novaImagem =
                 document.createElement('img');
 
-            novaImagem.src = srcImagem;
+            novaImagem.src =
+                objectURL;
 
-            novaImagem.alt = 'Evidência';
+            novaImagem.alt =
+                'Evidência';
 
             novaImagem.classList.add(
                 'custom-imagem-evidencia'
             );
 
-            // Log carregamento
-            novaImagem.onload = () => {
+            novaImagem.onload =
+                () => {
 
-                console.log(
-                    "Imagem carregada com sucesso."
-                );
+                    console.log(
+                        "Imagem carregada."
+                    );
 
-            };
+                };
 
-            // Log erro
-            novaImagem.onerror = () => {
+            novaImagem.onerror =
+                () => {
 
-                console.error(
-                    "Erro ao carregar imagem:",
-                    srcImagem
-                );
+                    console.error(
+                        "Erro renderização imagem."
+                    );
 
-            };
+                };
 
-            // Adiciona após link
-            link.after(novaImagem);
+            link.after(
+                novaImagem
+            );
 
-            // Quebra linha
             novaImagem.after(
-                document.createElement('br')
+                document.createElement(
+                    'br'
+                )
             );
 
         } catch (erro) {
 
             console.error(
-                "Erro ao processar evidência:",
+                "Erro geral:",
                 erro
             );
 
@@ -350,17 +321,20 @@ async function custom_exibirImagensParaImpressao() {
 // INICIALIZAÇÃO
 // =========================
 
-window.addEventListener("load", () => {
+window.addEventListener(
+    "load",
+    () => {
 
-    console.log(
-        "Página carregada."
-    );
+        console.log(
+            "Página carregada."
+        );
 
-    // Delay Zeev
-    setTimeout(() => {
+        setTimeout(() => {
 
-        custom_exibirImagensParaImpressao();
+            custom_exibirImagensParaImpressao();
 
-    }, 2000);
+        }, 2000);
 
-});
+    }
+);
+```
