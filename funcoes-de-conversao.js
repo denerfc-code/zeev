@@ -77,7 +77,3 @@ window.addEventListener("load", () => {
     }, 2000);
 
 });
-
-
-
-criei um link no github para usar no zeev, porem so funciona com png, jpg quebra a imagem
