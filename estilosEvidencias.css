@@ -1,0 +1,23 @@
+/*
+ * @class custom-imagem-evidencia
+ * @description Estiliza as imagens de evidência adicionadas dinamicamente para exibição e impressão.
+ */
+.custom-imagem-evidencia {
+    max-width: 100%; /* Garante que a imagem não exceda a largura do contêiner */
+    height: auto; /* Mantém a proporção da imagem ao redimensionar */
+    display: block; /* Faz com que a imagem ocupe sua própria linha */
+    margin-top: 10px; /* Adiciona um pequeno espaçamento acima da imagem */
+    border: 1px solid #ddd; /* Uma borda sutil para destacar a imagem */
+    padding: 5px; /* Espaçamento interno dentro da borda */
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.1); /* Sombra suave para um efeito 3D */
+}
+
+/* Regras específicas para impressão */
+@media print {
+    .custom-imagem-evidencia {
+        max-width: 100%; /* Garante que a imagem se ajuste à largura da página impressa */
+        break-inside: avoid; /* Evita que a imagem seja cortada entre as páginas na impressão */
+        page-break-inside: avoid; /* Propriedade antiga, mas útil para compatibilidade */
+        display: block !important; /* Garante que a imagem seja sempre exibida na impressão */
+    }
+}
