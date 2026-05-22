@@ -1,46 +1,63 @@
-```javascript id="m4x2cf"
-// =========================
+// ======================================
 // FUNÇÕES AUXILIARES
-// =========================
+// ======================================
 
 function custom_converterStringParaDate(valor) {
 
-    if (!valor) return null;
+    if (!valor) {
+        return null;
+    }
 
-    const [dia, mes, ano] = valor.split("/");
+    var partes = valor.split("/");
 
-    return new Date(ano, mes - 1, dia);
+    return new Date(
+        partes[2],
+        partes[1] - 1,
+        partes[0]
+    );
 
 }
 
 function custom_converterDateParaString(valor) {
 
-    if (!valor) return '';
+    if (!valor) {
+        return '';
+    }
 
-    return new Intl.DateTimeFormat('pt-BR').format(valor);
+    return new Intl.DateTimeFormat('pt-BR')
+        .format(valor);
 
 }
 
 function custom_converterStringParaDecimal(valor) {
 
-    return parseFloat(
-        valor?.replace(/\./g, '')?.replace(',', '.')
-    ) || 0;
+    if (!valor) {
+        return 0;
+    }
+
+    valor = valor
+        .replace(/\./g, '')
+        .replace(',', '.');
+
+    return parseFloat(valor) || 0;
 
 }
 
 function custom_converterDecimalParaString(valor) {
 
-    return new Intl.NumberFormat('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    }).format(valor);
+    return new Intl.NumberFormat(
+        'pt-BR',
+        {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }
+    ).format(valor);
 
 }
 
-// =========================
-// EXIBIR IMAGENS
-// =========================
+// ======================================
+// EXIBIR IMAGENS DAS EVIDÊNCIAS
+// ======================================
 
 async function custom_exibirImagensParaImpressao() {
 
@@ -48,7 +65,8 @@ async function custom_exibirImagensParaImpressao() {
     console.log("INICIANDO EVIDÊNCIAS");
     console.log("=================================");
 
-    const campoEvidencias = document.querySelector(
+    // Campo evidências
+    var campoEvidencias = document.querySelector(
         "div[xid='divevidencias']"
     );
 
@@ -62,15 +80,27 @@ async function custom_exibirImagensParaImpressao() {
 
     }
 
-    const links = campoEvidencias.querySelectorAll(
+    // Busca links
+    var links = campoEvidencias.querySelectorAll(
         'a[href*="document/preview"]'
     );
 
     console.log(
-        `Encontrados ${links.length} anexos.`
+        "Encontrados " +
+        links.length +
+        " anexos."
     );
 
-    for (const link of links) {
+    if (links.length === 0) {
+
+        return;
+
+    }
+
+    // Percorre anexos
+    for (var i = 0; i < links.length; i++) {
+
+        var link = links[i];
 
         try {
 
@@ -86,15 +116,14 @@ async function custom_exibirImagensParaImpressao() {
 
             }
 
-            console.log("=================================");
             console.log("PROCESSANDO:");
             console.log(link.href);
 
-            // =========================
-            // BUSCA PREVIEW
-            // =========================
+            // ======================================
+            // BUSCA HTML PREVIEW
+            // ======================================
 
-            const response = await fetch(
+            var response = await fetch(
                 link.href,
                 {
                     credentials: 'include'
@@ -104,7 +133,7 @@ async function custom_exibirImagensParaImpressao() {
             if (!response.ok) {
 
                 console.error(
-                    "Erro preview:",
+                    "Erro preview: " +
                     response.status
                 );
 
@@ -112,20 +141,19 @@ async function custom_exibirImagensParaImpressao() {
 
             }
 
-            const html = await response.text();
+            var html = await response.text();
 
-            // =========================
-            // EXTRAI URL JPG/PNG DIRETO
-            // =========================
+            // ======================================
+            // PROCURA URL IMAGEM
+            // ======================================
 
-            let srcImagem = null;
-
-            // Procura URLs completas
-            const regex =
+            var regex =
                 /https?:\/\/[^"' ]+\.(jpg|jpeg|png|webp)/gi;
 
-            const urlsEncontradas =
+            var urlsEncontradas =
                 html.match(regex);
+
+            var srcImagem = null;
 
             if (
                 urlsEncontradas &&
@@ -136,28 +164,29 @@ async function custom_exibirImagensParaImpressao() {
                     urlsEncontradas[0];
 
                 console.log(
-                    "URL encontrada via REGEX:",
-                    srcImagem
+                    "URL encontrada:"
                 );
+
+                console.log(srcImagem);
 
             }
 
-            // =========================
-            // TENTA SRC NORMAL
-            // =========================
+            // ======================================
+            // TENTA VIA HTML IMG
+            // ======================================
 
             if (!srcImagem) {
 
-                const parser =
+                var parser =
                     new DOMParser();
 
-                const doc =
+                var doc =
                     parser.parseFromString(
                         html,
                         'text/html'
                     );
 
-                const img =
+                var img =
                     doc.querySelector('img');
 
                 if (img) {
@@ -165,34 +194,26 @@ async function custom_exibirImagensParaImpressao() {
                     srcImagem =
                         img.src ||
                         img.getAttribute('src') ||
-                        img.getAttribute(
-                            'data-src'
-                        ) ||
-                        img.getAttribute(
-                            'srcset'
-                        );
+                        img.getAttribute('data-src');
 
                     console.log(
-                        "Imagem encontrada via IMG:",
-                        srcImagem
+                        "Imagem encontrada via IMG:"
                     );
+
+                    console.log(srcImagem);
 
                 }
 
             }
 
-            // =========================
+            // ======================================
             // NÃO ENCONTROU
-            // =========================
+            // ======================================
 
             if (!srcImagem) {
 
                 console.warn(
                     "Imagem não localizada."
-                );
-
-                console.log(
-                    "HTML PREVIEW:"
                 );
 
                 console.log(html);
@@ -201,12 +222,12 @@ async function custom_exibirImagensParaImpressao() {
 
             }
 
-            // =========================
-            // URL RELATIVA
-            // =========================
+            // ======================================
+            // AJUSTA URL RELATIVA
+            // ======================================
 
             if (
-                srcImagem.startsWith('/')
+                srcImagem.indexOf('/') === 0
             ) {
 
                 srcImagem =
@@ -221,23 +242,22 @@ async function custom_exibirImagensParaImpressao() {
 
             console.log(srcImagem);
 
-            // =========================
-            // BAIXA IMAGEM VIA BLOB
-            // =========================
+            // ======================================
+            // BAIXA IMAGEM
+            // ======================================
 
-            const imagemResponse =
+            var imagemResponse =
                 await fetch(
                     srcImagem,
                     {
-                        credentials:
-                            'include'
+                        credentials: 'include'
                     }
                 );
 
             if (!imagemResponse.ok) {
 
                 console.error(
-                    "Erro download imagem:",
+                    "Erro download imagem: " +
                     imagemResponse.status
                 );
 
@@ -245,21 +265,21 @@ async function custom_exibirImagensParaImpressao() {
 
             }
 
-            const blob =
+            // ======================================
+            // CONVERTE PARA BLOB
+            // ======================================
+
+            var blob =
                 await imagemResponse.blob();
 
-            const objectURL =
+            var objectURL =
                 URL.createObjectURL(blob);
 
-            console.log(
-                "Blob criado."
-            );
+            // ======================================
+            // CRIA ELEMENTO IMG
+            // ======================================
 
-            // =========================
-            // CRIA IMG
-            // =========================
-
-            const novaImagem =
+            var novaImagem =
                 document.createElement('img');
 
             novaImagem.src =
@@ -268,12 +288,11 @@ async function custom_exibirImagensParaImpressao() {
             novaImagem.alt =
                 'Evidência';
 
-            novaImagem.classList.add(
-                'custom-imagem-evidencia'
-            );
+            novaImagem.className =
+                'custom-imagem-evidencia';
 
             novaImagem.onload =
-                () => {
+                function () {
 
                     console.log(
                         "Imagem carregada."
@@ -282,30 +301,29 @@ async function custom_exibirImagensParaImpressao() {
                 };
 
             novaImagem.onerror =
-                () => {
+                function () {
 
                     console.error(
-                        "Erro renderização imagem."
+                        "Erro ao renderizar imagem."
                     );
 
                 };
 
-            link.after(
-                novaImagem
-            );
+            // Adiciona imagem
+            link.after(novaImagem);
 
+            // Quebra linha
             novaImagem.after(
-                document.createElement(
-                    'br'
-                )
+                document.createElement('br')
             );
 
         } catch (erro) {
 
             console.error(
-                "Erro geral:",
-                erro
+                "Erro geral:"
             );
+
+            console.error(erro);
 
         }
 
@@ -317,24 +335,27 @@ async function custom_exibirImagensParaImpressao() {
 
 }
 
-// =========================
+// ======================================
 // INICIALIZAÇÃO
-// =========================
+// ======================================
 
 window.addEventListener(
     "load",
-    () => {
+    function () {
 
         console.log(
             "Página carregada."
         );
 
-        setTimeout(() => {
+        // Delay Zeev
+        setTimeout(
+            function () {
 
-            custom_exibirImagensParaImpressao();
+                custom_exibirImagensParaImpressao();
 
-        }, 2000);
+            },
+            2000
+        );
 
     }
 );
-```
