@@ -29,6 +29,12 @@ async function custom_exibirImagensParaImpressao() {
 
             const doc = parser.parseFromString(html, 'text/html');
 
+            // ADICIONE AQUI ↓
+console.log("HTML do preview:", doc.body.innerHTML.substring(0, 500));
+console.log("Status do fetch da imagem será testado abaixo...");
+
+const imgInterna = doc.querySelector('img');
+
             const imgInterna = doc.querySelector('img');
 
             if (!imgInterna) {
