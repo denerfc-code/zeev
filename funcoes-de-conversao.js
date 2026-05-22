@@ -32,24 +32,33 @@ async function custom_exibirImagensParaImpressao() {
             const imgInterna = doc.querySelector('img');
 
             if (!imgInterna) {
-
                 console.warn("Nenhuma imagem encontrada dentro do preview.");
-
                 continue;
             }
 
-            console.log("Imagem encontrada:", imgInterna.src);
+            const imgSrc = imgInterna.getAttribute('src');
+            console.log("Imagem encontrada (src bruto):", imgSrc);
+
+            let srcFinal;
+            if (imgSrc.startsWith('http')) {
+                srcFinal = imgSrc;
+            } else {
+                const urlBase = new URL(link.href);
+                srcFinal = urlBase.origin + (imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc);
+            }
+
+            console.log("Src final:", srcFinal);
 
             const novaImagem = document.createElement('img');
 
-            novaImagem.src = imgInterna.src;
+            novaImagem.src = srcFinal;
 
             novaImagem.alt = 'Evidência';
 
             novaImagem.classList.add('custom-imagem-evidencia');
 
             novaImagem.onerror = () => {
-                console.error("Erro ao carregar imagem:", imgInterna.src);
+                console.error("Erro ao carregar imagem:", srcFinal);
             };
 
             link.after(novaImagem);
@@ -77,7 +86,3 @@ window.addEventListener("load", () => {
     }, 2000);
 
 });
-
-
-
-criei um link no github para usar no zeev, porem so funciona com png, jpg quebra a imagem
