@@ -59,7 +59,7 @@ function custom_converterDecimalParaString(valor) {
 // EXIBIR IMAGENS DAS EVIDÊNCIAS
 // ======================================
 
-async function custom_exibirImagensParaImpressao() {
+function custom_exibirImagensParaImpressao() {
 
     console.log("=================================");
     console.log("INICIANDO EVIDÊNCIAS");
@@ -102,230 +102,85 @@ async function custom_exibirImagensParaImpressao() {
 
         var link = links[i];
 
-        try {
-
-            // Evita duplicidade
-            if (
-                link.nextElementSibling &&
-                link.nextElementSibling.classList.contains(
-                    'custom-imagem-evidencia'
-                )
-            ) {
-
-                continue;
-
-            }
-
-            console.log("PROCESSANDO:");
-            console.log(link.href);
-
-            // ======================================
-            // BUSCA HTML PREVIEW
-            // ======================================
-
-            var response = await fetch(
-                link.href,
-                {
-                    credentials: 'include'
-                }
-            );
-
-            if (!response.ok) {
-
-                console.error(
-                    "Erro preview: " +
-                    response.status
-                );
-
-                continue;
-
-            }
-
-            var html = await response.text();
-
-            // ======================================
-            // PROCURA URL IMAGEM
-            // ======================================
-
-            var regex =
-                /https?:\/\/[^"' ]+\.(jpg|jpeg|png|webp)/gi;
-
-            var urlsEncontradas =
-                html.match(regex);
-
-            var srcImagem = null;
-
-            if (
-                urlsEncontradas &&
-                urlsEncontradas.length > 0
-            ) {
-
-                srcImagem =
-                    urlsEncontradas[0];
-
-                console.log(
-                    "URL encontrada:"
-                );
-
-                console.log(srcImagem);
-
-            }
-
-            // ======================================
-            // TENTA VIA HTML IMG
-            // ======================================
-
-            if (!srcImagem) {
-
-                var parser =
-                    new DOMParser();
-
-                var doc =
-                    parser.parseFromString(
-                        html,
-                        'text/html'
-                    );
-
-                var img =
-                    doc.querySelector('img');
-
-                if (img) {
-
-                    srcImagem =
-                        img.src ||
-                        img.getAttribute('src') ||
-                        img.getAttribute('data-src');
-
-                    console.log(
-                        "Imagem encontrada via IMG:"
-                    );
-
-                    console.log(srcImagem);
-
-                }
-
-            }
-
-            // ======================================
-            // NÃO ENCONTROU
-            // ======================================
-
-            if (!srcImagem) {
-
-                console.warn(
-                    "Imagem não localizada."
-                );
-
-                console.log(html);
-
-                continue;
-
-            }
-
-            // ======================================
-            // AJUSTA URL RELATIVA
-            // ======================================
-
-            if (
-                srcImagem.indexOf('/') === 0
-            ) {
-
-                srcImagem =
-                    window.location.origin +
-                    srcImagem;
-
-            }
-
-            console.log(
-                "URL FINAL:"
-            );
-
-            console.log(srcImagem);
-
-            // ======================================
-            // BAIXA IMAGEM
-            // ======================================
-
-            var imagemResponse =
-                await fetch(
-                    srcImagem,
-                    {
-                        credentials: 'include'
-                    }
-                );
-
-            if (!imagemResponse.ok) {
-
-                console.error(
-                    "Erro download imagem: " +
-                    imagemResponse.status
-                );
-
-                continue;
-
-            }
-
-            // ======================================
-            // CONVERTE PARA BLOB
-            // ======================================
-
-            var blob =
-                await imagemResponse.blob();
-
-            var objectURL =
-                URL.createObjectURL(blob);
-
-            // ======================================
-            // CRIA ELEMENTO IMG
-            // ======================================
-
-            var novaImagem =
-                document.createElement('img');
-
-            novaImagem.src =
-                objectURL;
-
-            novaImagem.alt =
-                'Evidência';
-
-            novaImagem.className =
-                'custom-imagem-evidencia';
-
-            novaImagem.onload =
-                function () {
-
-                    console.log(
-                        "Imagem carregada."
-                    );
-
-                };
-
-            novaImagem.onerror =
-                function () {
-
-                    console.error(
-                        "Erro ao renderizar imagem."
-                    );
-
-                };
-
-            // Adiciona imagem
-            link.after(novaImagem);
-
-            // Quebra linha
-            novaImagem.after(
-                document.createElement('br')
-            );
-
-        } catch (erro) {
-
-            console.error(
-                "Erro geral:"
-            );
-
-            console.error(erro);
+        // Evita duplicidade
+        if (
+            link.nextElementSibling &&
+            link.nextElementSibling.classList.contains(
+                'custom-imagem-evidencia'
+            )
+        ) {
+
+            continue;
 
         }
+
+        console.log("PROCESSANDO:");
+        console.log(link.href);
+
+        // ======================================
+        // CRIA IMG
+        // ======================================
+
+        var imagem =
+            document.createElement("img");
+
+        // Remove parâmetros problemáticos
+        var urlImagem =
+            link.href;
+
+        // Força abertura limpa
+        urlImagem =
+            urlImagem.replace(
+                "/preview",
+                "/download"
+            );
+
+        imagem.src =
+            urlImagem;
+
+        imagem.alt =
+            "Evidência";
+
+        imagem.className =
+            "custom-imagem-evidencia";
+
+        // ======================================
+        // SUCESSO
+        // ======================================
+
+        imagem.onload =
+            function () {
+
+                console.log(
+                    "Imagem carregada com sucesso."
+                );
+
+            };
+
+        // ======================================
+        // ERRO
+        // ======================================
+
+        imagem.onerror =
+            function () {
+
+                console.error(
+                    "Erro ao carregar imagem:"
+                );
+
+                console.error(
+                    this.src
+                );
+
+            };
+
+        // Adiciona imagem
+        link.after(imagem);
+
+        // Quebra linha
+        imagem.after(
+            document.createElement("br")
+        );
 
     }
 
