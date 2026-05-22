@@ -37,7 +37,7 @@ async function custom_exibirImagensParaImpressao() {
             }
 
             const imgSrc = imgInterna.getAttribute('src');
-            console.log("Imagem encontrada (src bruto):", imgSrc);
+            console.log("Imagem encontrada:", imgSrc);
 
             let srcFinal;
             if (imgSrc.startsWith('http')) {
@@ -47,14 +47,17 @@ async function custom_exibirImagensParaImpressao() {
                 srcFinal = urlBase.origin + (imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc);
             }
 
-            console.log("Src final:", srcFinal);
+            // Busca a imagem com autenticação e converte para blob URL
+            const imgResponse = await fetch(srcFinal, {
+                credentials: 'include'
+            });
+
+            const blob = await imgResponse.blob();
+            const blobUrl = URL.createObjectURL(blob);
 
             const novaImagem = document.createElement('img');
-
-            novaImagem.src = srcFinal;
-
+            novaImagem.src = blobUrl;
             novaImagem.alt = 'Evidência';
-
             novaImagem.classList.add('custom-imagem-evidencia');
 
             novaImagem.onerror = () => {
@@ -62,7 +65,6 @@ async function custom_exibirImagensParaImpressao() {
             };
 
             link.after(novaImagem);
-
             novaImagem.after(document.createElement('br'));
 
         } catch (e) {
